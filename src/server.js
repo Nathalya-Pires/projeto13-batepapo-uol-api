@@ -3,13 +3,21 @@ import cors from "cors";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
+import joi from "joi";
 
 dotenv.config();
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
-
 let db;
 const hour = dayjs().format("HH:mm:ss");
+const userSchema = joi.object({
+  name: joi.string().min(3).max(20).required(),
+});
+const messageSchema = joi.object({
+  to: joi.string().min(3).max(20).required(),
+  text: joi.string().min(1).required(),
+  type: joi.valid("private_message", "message").required(),
+});
 
 try {
   await mongoClient.connect();
@@ -24,6 +32,11 @@ server.use(express.json());
 
 server.post("/participants", async (req, res) => {
   const { name } = req.body;
+  const validate = userSchema.validate(req.body,{abortEarly:false});
+
+  if (validate.error) {
+    return res.sendStatus(422);
+  }
 
   try {
     const existName = await db.collection("participants").findOne({ name });
@@ -60,6 +73,11 @@ server.get("/participants", async (req, res) => {
 server.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
   const { user } = req.headers;
+  const validate = messageSchema.validate(req.body,{abortEarly:false});
+
+  if (validate.error) {
+    return res.sendStatus(422);
+  }
 
   try {
     const existUser = await db
