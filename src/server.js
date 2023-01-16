@@ -116,12 +116,16 @@ server.get("/messages", async (req, res) => {
       })
       .toArray();
 
-    const msgReverse = msg.reverse().slice(0, parseInt(limit));
+    const msgFront = msg.slice(-limit);
+    
+    if (limit === undefined) {
+      return res.send(msgFront);
+    }
 
     if (isNaN(limit) || limit < 1) {
       return res.sendStatus(422);
     } else {
-      res.send(msgReverse);
+      res.send(msgFront);
     }
   } catch (error) {
     return res.sendStatus(500);
