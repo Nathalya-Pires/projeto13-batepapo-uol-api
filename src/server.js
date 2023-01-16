@@ -9,7 +9,7 @@ dotenv.config();
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
 let db;
-const hour = dayjs().format("HH:mm:ss");
+
 const userSchema = joi.object({
   name: joi.string().min(3).max(20).required(),
 });
@@ -32,7 +32,8 @@ server.use(express.json());
 
 server.post("/participants", async (req, res) => {
   const { name } = req.body;
-  const validate = userSchema.validate(req.body,{abortEarly:false});
+  const validate = userSchema.validate(req.body, { abortEarly: false });
+  const hour = dayjs().format("HH:mm:ss");
 
   if (validate.error) {
     return res.sendStatus(422);
@@ -47,8 +48,8 @@ server.post("/participants", async (req, res) => {
     await db
       .collection("participants")
       .insertOne({ name, lastStatus: Date.now() });
-    res.sendStatus(201);
-    await db.collection("messages").insertOne({
+
+    db.collection("messages").insertOne({
       from: name,
       to: "Todos",
       text: "entra na sala...",
@@ -57,7 +58,7 @@ server.post("/participants", async (req, res) => {
     });
     return res.sendStatus(201);
   } catch (error) {
-    return res.status(500).send(err.message);
+    return res.sendStatus(500);
   }
 });
 
@@ -73,7 +74,8 @@ server.get("/participants", async (req, res) => {
 server.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
   const { user } = req.headers;
-  const validate = messageSchema.validate(req.body,{abortEarly:false});
+  const validate = messageSchema.validate(req.body, { abortEarly: false });
+  const hour = dayjs().format("HH:mm:ss");
 
   if (validate.error) {
     return res.sendStatus(422);
@@ -108,12 +110,19 @@ server.get("/messages", async (req, res) => {
         $or: [
           { type: "status" },
           { type: "message" },
-          { type: "private_message", user },
+          { type: "private_message", from: user },
           { type: "private_message", to: user },
         ],
       })
       .toArray();
-    res.send(msg.slice(-limit));
+
+    const msgReverse = msg.reverse().slice(0, parseInt(limit));
+
+    if (isNaN(limit) || limit < 1) {
+      return res.sendStatus(422);
+    } else {
+      res.send(msgReverse);
+    }
   } catch (error) {
     return res.sendStatus(500);
   }
@@ -142,6 +151,7 @@ server.post("/status", async (req, res) => {
 
 async function removeUsers() {
   const time = Date.now() - 10000;
+  const hour = dayjs().format("HH:mm:ss");
 
   const inactive = await db
     .collection("participants")
